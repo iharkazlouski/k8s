@@ -41,6 +41,7 @@ spec:
   - host: webapps.example
     http:
       paths:
-      - backend:
+      - path: /myapp
+        backend:
           serviceName: myapp-svc
           servicePort: 80
