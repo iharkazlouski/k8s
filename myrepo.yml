@@ -44,4 +44,3 @@ spec:
       - backend:
           serviceName: myapp-svc
           servicePort: 80
-                                                                                    49,7          Bot
