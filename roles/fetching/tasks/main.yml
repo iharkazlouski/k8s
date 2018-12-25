@@ -1,0 +1,8 @@
+---
+# tasks file for fetching
+
+- name: fetching file
+  fetch:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/vagrant/.kube/config
+

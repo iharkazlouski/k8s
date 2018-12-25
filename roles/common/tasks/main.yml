@@ -1,0 +1,28 @@
+---
+# tasks file for common
+
+- name: Install yum utils
+  yum:
+    name: ['yum-utils', 'device-mapper-persistent-data', 'lvm2', 'net-tools']
+    state: latest
+  become: yes
+- name: Remove swap from fstab
+  lineinfile:
+    dest: /etc/fstab
+    regexp:  '(?i)^([^#][\S]+\s+(none|swap)\s+swap.*)' 
+    line: '# \1'
+    backrefs: yes
+    state: present     
+  become: yes
+
+#- name: Enable iptables forwarding
+#  sysctl:
+#    name: net.bridge.bridge-nf-call-iptables
+#    value: 1
+#    sysctl_set: yes
+#    sysctl_file: /usr/lib/sysctl.d/00-system.conf   
+#   reload: yes
+#  become: yes
+
+
+

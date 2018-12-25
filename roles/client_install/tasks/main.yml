@@ -1,0 +1,36 @@
+---
+# tasks file for client_install
+
+#- name: checking if folder exists
+#  file:
+#    path: /home/student/.kube
+#    state: directory
+#    mode: 0777
+#    recurse: yes
+#  become: yes
+
+- name: installing kubectl
+  yum:
+    name: kubectl
+
+#- name: Echo my_env_var
+#  shell:  export KUBECONFIG=/home/student/.kube/admin.conf
+
+- name: Applying yamls
+  shell: kubectl apply -f "{{item}}"
+  with_items:
+  - https://rawgit.com/kubernetes/dashboard/bfab10151f012d1acc5dfb1979f3172e2400aa3c/src/deploy/kubernetes-dashboard.yaml
+
+- name: deploying myapp
+  shell: kubectl apply -f https://raw.githubusercontent.com/iharkazlouski/k8s/master/myrepo.yml 
+
+ 
+- name: Starting Proxy
+  command: kubectl proxy
+  async: 60000
+  poll: 0
+
+- name: RBAC
+  shell: kubectl create clusterrolebinding add-on-cluster-admin --clusterrole=cluster-admin --serviceaccount=kube-system:default
+
+

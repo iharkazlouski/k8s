@@ -1,0 +1,107 @@
+---
+# tasks file for k8s
+
+- name: Remove swap from fstab
+  lineinfile:
+    dest: /etc/fstab
+    regexp:  '(?i)^([^#][\S]+\s+(none|swap)\s+swap.*)'
+    line: '# \1'
+    backrefs: yes
+    state: present
+  become: yes
+
+- name: add kube repo
+  copy:
+    dest: "/etc/yum.repos.d/kubernetes.repo"
+    content: |
+      [kubernetes]
+      name=Kubernetes
+      baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
+      enabled=1
+      gpgcheck=1
+      repo_gpgcheck=1
+      gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+  become: yes
+
+- name: add kube packages
+  yum:
+    name: ['kubelet', 'kubeadm', 'kubectl']
+  become: yes
+
+- name: enable service kubelet
+  systemd:
+    name: kubelet
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  become: yes
+
+- name: shell sed
+  shell: |
+    sed -i "s/\(KUBELET_EXTRA_ARGS=\).*/\1--node-ip=$(ifconfig enp0s8 | sed -n '2p' | awk '{print $2}')/" /etc/sysconfig/kubelet
+  become: yes
+
+- name: init network
+  command: kubeadm init --apiserver-advertise-address 192.168.56.15 --pod-network-cidr=10.244.0.0/16
+  register: init_result
+  ignore_errors: True
+  failed_when: "'FAILED' in init_result.stderr"
+  become: yes
+
+- name: fetching file
+  fetch:
+    src: /etc/kubernetes/admin.conf
+    dest: /home/student/.kube/config
+    flat: yes
+  become: yes
+
+- name: checking if directory for config exists
+  file:
+    path: /home/vagrant/.kube
+    state: directory
+
+- name: copy config
+  copy:
+    remote_src: yes
+    src: /etc/kubernetes/admin.conf
+    dest: /home/vagrant/.kube/config
+  become: yes
+
+- name: allow user to run k8s
+  file:
+    path: /home/vagrant/.kube/config
+    owner: vagrant 
+    group: vagrant
+    mode: 0644
+  become: yes
+
+- name: Downloading flannel
+  get_url:
+    url: https://raw.githubusercontent.com/coreos/flannel/bc79dd1505b0c8681ece4de4c0d86c5cd2643275/Documentation/kube-flannel.yml
+    dest: /home/vagrant
+
+- name: Applying flannel
+  shell: kubectl apply -f /home/vagrant/kube-flannel.yml
+
+- name: Taint 
+  shell: kubectl taint nodes --all node-role.kubernetes.io/master-
+  register: taint_result
+  ignore_errors: True
+  failed_when: "'FAILED' in taint_result.stderr"
+
+- name: Applying yamls
+  shell: kubectl apply -f "{{item}}"
+  with_items:
+  - https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/namespace.yaml
+  - https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/mandatory.yaml
+  - https://raw.githubusercontent.com/kubernetes/ingress-nginx/master/deploy/provider/baremetal/service-nodeport.yaml
+
+- name: Patching Nginx
+  shell: |
+    kubectl patch svc ingress-nginx -n ingress-nginx --patch '{ "spec": {"externalIPs": [ "192.168.56.15" ] }}'
+
+- name: Applying yamls
+
+  shell: kubectl apply -f "{{item}}"
+  with_items:
+  - https://gist.githubusercontent.com/sbeliakou/d060aa7fbdb0241b400e165e4fab7d87/raw/6f11b0882306ca43bae4cece27d6870355544744/simplefanout.yml

@@ -1,0 +1,7 @@
+- hosts: all
+  roles:
+  - common  
+  - docker
+  - k8s
+  - client_install
+
